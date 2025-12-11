@@ -246,6 +246,40 @@ public class NeoAuditService {
         return auditEventRepository.countByTenantIdAndActionAndDateRange(tenantId, action, startDate, endDate);
     }
 
+    // ========== Catalog-specific Audit Methods ==========
+
+    /**
+     * Auditar creación de código en catálogo
+     */
+    @Transactional
+    public void logCatalogCreated(cl.hec.neo.fhir.core.model.MasterCatalog catalog, String createdBy) {
+        auditCreate(catalog.getTenant(), "MasterCatalog", catalog.getId().toString(), createdBy, catalog);
+    }
+
+    /**
+     * Auditar actualización de código en catálogo
+     */
+    @Transactional
+    public void logCatalogUpdated(cl.hec.neo.fhir.core.model.MasterCatalog catalog, String updatedBy) {
+        auditUpdate(catalog.getTenant(), "MasterCatalog", catalog.getId().toString(), updatedBy, null, catalog);
+    }
+
+    /**
+     * Auditar desactivación de código en catálogo
+     */
+    @Transactional
+    public void logCatalogDeactivated(cl.hec.neo.fhir.core.model.MasterCatalog catalog, String deactivatedBy) {
+        audit(AuditEventBuilder.create()
+            .tenant(catalog.getTenant())
+            .action(AuditEvent.AuditAction.UPDATE)
+            .outcome(AuditEvent.AuditOutcome.SUCCESS)
+            .entityType("MasterCatalog")
+            .entityId(catalog.getId().toString())
+            .userId(deactivatedBy)
+            .detailsJson("{\"action\":\"deactivated\"}")
+        );
+    }
+
     // ========== Helper Methods ==========
 
     private String toJson(Object obj) {
