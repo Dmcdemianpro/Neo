@@ -62,4 +62,46 @@ public interface StoredQueryRepository extends JpaRepository<StoredQuery, UUID> 
     @Query("SELECT sq FROM StoredQuery sq WHERE sq.tenant.id = :tenantId ORDER BY sq.usageCount DESC")
     List<StoredQuery> findMostUsedByTenantId(@Param("tenantId") UUID tenantId,
                                               org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Buscar queries por tenant con paginación
+     */
+    org.springframework.data.domain.Page<StoredQuery> findByTenantIdOrderByCreatedAtDesc(
+        UUID tenantId, org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Obtener queries más usadas (con nombre consistente)
+     */
+    @Query("SELECT sq FROM StoredQuery sq WHERE sq.tenant.id = :tenantId ORDER BY sq.usageCount DESC")
+    List<StoredQuery> findTopByTenantIdOrderByUsageCountDesc(@Param("tenantId") UUID tenantId,
+                                                               org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Obtener queries usadas recientemente
+     */
+    @Query("SELECT sq FROM StoredQuery sq WHERE sq.tenant.id = :tenantId AND sq.lastUsedAt IS NOT NULL ORDER BY sq.lastUsedAt DESC")
+    List<StoredQuery> findTopByTenantIdOrderByLastUsedAtDesc(@Param("tenantId") UUID tenantId,
+                                                               org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Buscar queries por nombre (alias para compatibilidad)
+     */
+    @Query("SELECT sq FROM StoredQuery sq WHERE sq.tenant.id = :tenantId AND LOWER(sq.name) LIKE LOWER(CONCAT('%', :searchText, '%')) ORDER BY sq.name")
+    List<StoredQuery> searchByName(@Param("tenantId") UUID tenantId, @Param("searchText") String searchText);
+
+    /**
+     * Contar queries por tenant
+     */
+    long countByTenantId(UUID tenantId);
+
+    /**
+     * Contar queries públicas por tenant
+     */
+    long countByTenantIdAndIsPublicTrue(UUID tenantId);
+
+    /**
+     * Sumar total de usos por tenant
+     */
+    @Query("SELECT COALESCE(SUM(sq.usageCount), 0) FROM StoredQuery sq WHERE sq.tenant.id = :tenantId")
+    long sumUsageCountByTenantId(@Param("tenantId") UUID tenantId);
 }
