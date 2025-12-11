@@ -1,0 +1,330 @@
+# ============================================================================
+# NEO FHIR SERVER - Configuration
+# Plataforma de Interoperabilidad en Salud para Chile
+# ============================================================================
+
+spring:
+  application:
+    name: neo-fhir-server
+
+  # ============================================================================
+  # DATABASE CONFIGURATION
+  # ============================================================================
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fhirdb}
+    username: ${DB_USER:fhiruser}
+    password: ${DB_PASSWORD:fhirpass123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: NeoHikariPool
+
+  # ============================================================================
+  # JPA / HIBERNATE
+  # ============================================================================
+  jpa:
+    hibernate:
+      ddl-auto: none  # Flyway maneja las migraciones
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        generate_statistics: ${HIBERNATE_STATS:false}
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+    show-sql: ${JPA_SHOW_SQL:false}
+
+  # ============================================================================
+  # FLYWAY (Database Migrations)
+  # ============================================================================
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    out-of-order: false
+    placeholder-replacement: true
+    placeholders:
+      neo_version: '1.0.0'
+
+  # ============================================================================
+  # REDIS (Caching & Sessions)
+  # ============================================================================
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000  # 1 hour
+      cache-null-values: false
+
+  # ============================================================================
+  # SECURITY (OAuth2 / Keycloak) - TEMPORALMENTE DESHABILITADO
+  # ============================================================================
+  # Descomentar cuando Keycloak esté corriendo
+  #security:
+  #  oauth2:
+  #    resourceserver:
+  #      jwt:
+  #        issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neo}
+  #        jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/neo/protocol/openid-connect/certs}
+  #    client:
+  #      registration:
+  #        keycloak:
+  #          client-id: ${KEYCLOAK_CLIENT_ID:neo-fhir-server}
+  #          client-secret: ${KEYCLOAK_CLIENT_SECRET:changeme}
+  #          authorization-grant-type: authorization_code
+  #          scope: openid, profile, email, fhirUser
+  #      provider:
+  #        keycloak:
+  #          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neo}
+
+  # ============================================================================
+  # ACTUATOR (Observability)
+  # ============================================================================
+  actuator:
+    enabled: true
+
+# ============================================================================
+# MANAGEMENT ENDPOINTS (Prometheus, Health, etc.)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,flyway,env,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
+        descriptions: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${NEO_ENV:development}
+  tracing:
+    sampling:
+      probability: ${TRACING_PROBABILITY:0.1}
+
+# ============================================================================
+# HAPI FHIR SERVER CONFIGURATION
+# ============================================================================
+hapi:
+  fhir:
+    ### Server ###
+    server:
+      name: NEO FHIR Server Chile
+      version: R4
+      base_url: ${FHIR_BASE_URL:http://localhost:8080/fhir}
+
+    ### FHIR Version ###
+    fhir_version: R4
+
+    ### Enable/Disable Features ###
+    allow_contains_searches: true
+    allow_multiple_delete: false
+    allow_external_references: true
+    allow_cascading_deletes: true
+    allow_override_default_search_params: true
+    auto_create_placeholder_reference_targets: false
+
+    ### Search ###
+    default_page_size: 20
+    max_page_size: 500
+
+    ### Database ###
+    persistence_unit_name: HAPI_PERSISTENCE_UNIT
+
+    ### Validation ###
+    validation:
+      enabled: true
+      requests_enabled: true
+      responses_enabled: false
+
+    ### Binary Storage ###
+    binary_storage_enabled: true
+
+    ### Subscription ###
+    subscription:
+      enabled: true
+      resthook_enabled: true
+      websocket_enabled: true
+      email_enabled: false
+
+    ### Partitioning (Multi-tenancy) ###
+    partitioning:
+      enabled: ${MULTITENANCY_ENABLED:true}
+      cross_partition_reference_mode: NOT_ALLOWED
+
+    ### CL-Core Profiles ###
+    profile:
+      default_patient_profile: https://hl7chile.cl/fhir/ig/clcore/StructureDefinition/CorePacienteCl
+      default_practitioner_profile: https://hl7chile.cl/fhir/ig/clcore/StructureDefinition/CorePrestadorCl
+      default_organization_profile: https://hl7chile.cl/fhir/ig/clcore/StructureDefinition/CoreOrganizacionCl
+
+    ### Terminology ###
+    terminology:
+      defer_indexing_for_codesystems_of_size: 0
+
+    ### Logging ###
+    logger:
+      name: fhirtest.access
+      format: Path[${servletPath}] Source[${requestHeader.x-forwarded-for}] Operation[${operationType} ${operationName} ${idOrResourceName}] UA[${requestHeader.user-agent}] Params[${requestParameters}] ResponseEncoding[${responseEncodingNoDefault}]
+      log_exceptions: true
+
+    ### CORS ###
+    cors:
+      enabled: true
+      allowed_origin:
+        - '*'
+      allowed_methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - PATCH
+
+    ### Narrative Generation ###
+    narrative:
+      enabled: true
+
+# ============================================================================
+# NEO CUSTOM CONFIGURATION
+# ============================================================================
+neo:
+  version: 1.0.0
+  environment: ${NEO_ENV:development}
+
+  # Multi-tenancy
+  multi-tenancy:
+    enabled: ${MULTITENANCY_ENABLED:true}
+    default-tenant: DEMO
+    header-name: X-Tenant-ID
+
+  # Master Patient Index (MPI)
+  mpi:
+    duplicate-detection:
+      enabled: true
+      threshold: 0.85  # 85% similarity = potential duplicate
+      auto-merge-threshold: 0.95  # 95% = auto-merge (optional)
+    rut-validation:
+      enabled: true
+      strict: true
+
+  # Auditing
+  audit:
+    enabled: true
+    log-all-reads: ${AUDIT_LOG_READS:false}  # puede generar muchos logs
+    log-all-writes: true
+    retention-days: 2555  # 7 años (compliance Chile)
+
+  # Chilean Integrations
+  integrations:
+    cenabast:
+      enabled: ${CENABAST_ENABLED:false}
+      base-url: ${CENABAST_BASE_URL:https://api.cenabast.cl}
+      api-key: ${CENABAST_API_KEY:}
+      sync-cron: ${CENABAST_SYNC_CRON:0 0 2 * * ?}  # 2 AM daily
+
+    fonasa:
+      enabled: ${FONASA_ENABLED:false}
+      base-url: ${FONASA_BASE_URL:https://api.fonasa.cl}
+      api-key: ${FONASA_API_KEY:}
+
+    minsal:
+      enabled: ${MINSAL_ENABLED:false}
+      deis-reporting:
+        enabled: false
+        sftp-host: ${MINSAL_SFTP_HOST:}
+
+  # Mirth Connect Integration
+  mirth:
+    enabled: ${MIRTH_ENABLED:false}
+    api-url: ${MIRTH_API_URL:https://localhost:8443/api}
+    username: ${MIRTH_USERNAME:admin}
+    password: ${MIRTH_PASSWORD:admin}
+
+  # Limits
+  limits:
+    max-upload-size-mb: 50
+    max-search-results: 10000
+    request-timeout-seconds: 300
+
+  # Features
+  features:
+    clinical-documents: true
+    prescriptions: true
+    stored-queries: true
+    terminology-server: false  # futuro
+    analytics-engine: false    # futuro
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    cl.hec.neo: ${NEO_LOG_LEVEL:DEBUG}
+    ca.uhn.fhir: ${HAPI_LOG_LEVEL:INFO}
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate: WARN
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_PATH:./logs}/neo-fhir-server.log
+    max-size: 100MB
+    max-history: 30
+
+# ============================================================================
+# SERVER
+# ============================================================================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/fhir+json,application/fhir+xml
+  error:
+    include-message: always
+    include-stacktrace: on_param
