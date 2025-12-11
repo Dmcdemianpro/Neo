@@ -41,4 +41,13 @@ public interface EpisodeResourceRepository extends JpaRepository<EpisodeResource
      * Contar recursos vinculados a un episodio
      */
     long countByEpisodeId(UUID episodeId);
+
+    /**
+     * Buscar recurso vinculado por episodio, tipo y resourceId
+     */
+    @Query("SELECT er FROM EpisodeResource er WHERE er.episode.id = :episodeId AND er.resourceType = :resourceType AND er.resourceId = :resourceId")
+    Optional<EpisodeResource> findByEpisodeIdAndResourceTypeAndResourceId(
+        @Param("episodeId") UUID episodeId,
+        @Param("resourceType") String resourceType,
+        @Param("resourceId") String resourceId);
 }

@@ -49,4 +49,10 @@ public interface EpisodeRepository extends JpaRepository<Episode, UUID> {
      * Buscar episodios por cuidador
      */
     List<Episode> findByCareManagerIdOrderByPeriodStartDesc(UUID careManagerId);
+
+    /**
+     * Buscar episodios por EHR y estado
+     */
+    @Query("SELECT e FROM Episode e WHERE e.ehr.id = :ehrId AND e.status = :status ORDER BY e.periodStart DESC")
+    List<Episode> findByEhrIdAndStatusOrderByPeriodStartDesc(@Param("ehrId") UUID ehrId, @Param("status") Episode.EpisodeStatus status);
 }
